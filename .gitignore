@@ -1,3 +1,10 @@
+# Project-specific
+node_modules/
+dist/
+bin/
+voices/
+.env
+
 # Logs
 logs
 *.log
@@ -141,3 +148,6 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+DISCORD_BOT_SETUP.md
+RECAP.md
+claude.md
