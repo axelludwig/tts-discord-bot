@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts --ext ts",
     "start": "tsx src/index.ts",
     "build": "tsc",
     "start:prod": "node dist/index.js"

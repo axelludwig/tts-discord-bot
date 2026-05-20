@@ -15,4 +15,5 @@ export const config = {
   PIPER_BIN: process.env['PIPER_BIN'] ?? './bin/piper-runtime/piper',
   VOICES_DIR: process.env['VOICES_DIR'] ?? './voices',
   CORS_ORIGIN: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',
+  GUILD_ID: process.env['GUILD_ID'] ?? '',
 };

@@ -10,7 +10,7 @@ export const client = new Client({
 
 export function loginBot(): Promise<void> {
   return new Promise((resolve, reject) => {
-    client.once('ready', () => {
+    client.once('clientReady', () => {
       console.log(`[bot] Logged in as ${client.user?.tag}`);
       resolve();
     });
