@@ -1,0 +1,134 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #0f0f0f;
+  color: #e0e0e0;
+  padding: 24px;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 20px;
+  color: #fff;
+}
+
+.health-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #555;
+  margin-right: 6px;
+  vertical-align: middle;
+  transition: background 0.3s;
+}
+
+.token-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+
+.token-bar label {
+  color: #aaa;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.token-bar input {
+  max-width: 320px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.card h2 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #888;
+  margin-bottom: 12px;
+}
+
+.field {
+  margin-top: 8px;
+}
+
+.field label {
+  display: block;
+  font-size: 0.8rem;
+  color: #aaa;
+  margin-bottom: 3px;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 6px 8px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 7px 14px;
+  background: #5865f2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+button:hover {
+  background: #4752c4;
+}
+
+button:disabled {
+  background: #3a3a5c;
+  cursor: not-allowed;
+}
+
+.result {
+  margin-top: 10px;
+  padding: 8px;
+  background: #111;
+  border: 1px solid #222;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-family: monospace;
+  white-space: pre-wrap;
+  max-height: 160px;
+  overflow: auto;
+  color: #7dff7d;
+}
+
+.result.err {
+  color: #ff6b6b;
+}
