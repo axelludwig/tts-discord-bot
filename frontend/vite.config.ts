@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
+      '/config': 'http://localhost:3005',
       '/health': 'http://localhost:3005',
       '/guilds': 'http://localhost:3005',
       '/voices': 'http://localhost:3005',
@@ -12,6 +13,10 @@ export default defineConfig({
       '/speak': 'http://localhost:3005',
       '/stop': 'http://localhost:3005',
       '/status': 'http://localhost:3005',
+      '/socket.io': {
+        target: 'http://localhost:3005',
+        ws: true,
+      },
     },
   },
 });

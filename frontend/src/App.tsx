@@ -1,10 +1,58 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { io, type Socket } from 'socket.io-client';
+import './App.css';
 
 // ---------------------------------------------------------------------------
-// Shared types
+// Types
 // ---------------------------------------------------------------------------
 
-type ApiResult = { data: unknown; ok: boolean } | null;
+interface ChannelMember {
+  id: string;
+  displayName: string;
+  avatarUrl: string;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  members: ChannelMember[];
+}
+
+interface Message {
+  id: string;
+  author: string;
+  content: string;
+  time: string;
+  color: string;
+}
+
+interface GuildRealtimeState {
+  guildId: string;
+  connected: boolean;
+  channelId?: string;
+  playing: boolean;
+  channels: Channel[];
+}
+
+// ---------------------------------------------------------------------------
+// Seed data
+// ---------------------------------------------------------------------------
+
+const COLORS = ['#5865f2', '#eb459e', '#57f287', '#fee75c', '#ed4245', '#3ba55c', '#faa61a'];
+function seedColor(name: string) {
+  let n = 0;
+  for (let i = 0; i < name.length; i++) n += name.charCodeAt(i);
+  return COLORS[n % COLORS.length];
+}
+
+const SEED_MESSAGES: Message[] = [
+  { id: '1', author: 'linkenparis ^-^', content: 'Salut tout le monde !', time: '10:28', color: seedColor('linkenparis') },
+  { id: '2', author: 'Guitron le filou', content: 'Hey ! 👋', time: '10:29', color: seedColor('Guitron') },
+  { id: '3', author: 'Gyzee the bee', content: 'Coucou 🐝', time: '10:30', color: seedColor('Gyzee') },
+  { id: '4', author: 'Fossason', content: "Quelqu'un a du beurre ?", time: '10:31', color: seedColor('Fossason') },
+  { id: '5', author: 'tts-bot', content: 'Bonjour à tous ! Je suis prêt à parler.', time: '10:31', color: seedColor('tts-bot') },
+  { id: '6', author: 'linkenparis ^-^', content: 'Super, dis quelque chose !', time: '10:32', color: seedColor('linkenparis') },
+];
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -36,413 +84,264 @@ async function callApi(
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  const data = await r.json();
+  const data = await r.json().catch(() => null);
   return { data, ok: r.ok };
 }
 
+
 // ---------------------------------------------------------------------------
-// Small shared components
+// Chat area
 // ---------------------------------------------------------------------------
 
-function ResultBox({ result, loading }: { result: ApiResult; loading: boolean }) {
-  if (loading) return <pre className="result">…</pre>;
-  if (!result) return null;
+function MiniAvatar({ name, color }: { name: string; color: string }) {
+  const initial = name.replace(/[^a-zA-Z]/g, '')[0]?.toUpperCase() ?? '?';
   return (
-    <pre className={`result${result.ok ? '' : ' err'}`}>
-      {JSON.stringify(result.data, null, 2)}
-    </pre>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      {children}
+    <div className="chat-avatar" style={{ background: color }}>
+      {initial}
     </div>
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="card">
-      <h2>{title}</h2>
-      {children}
-    </div>
-  );
-}
+const TTS_BOT_NAME = 'tts-bot';
+const TTS_BOT_COLOR = seedColor(TTS_BOT_NAME);
 
-// ---------------------------------------------------------------------------
-// Individual cards
-// ---------------------------------------------------------------------------
-
-function HealthCard({ token }: { token: string }) {
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('GET', '/health', undefined, token, true));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="GET /health">
-      <button onClick={run} disabled={loading}>
-        Ping
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function GuildsCard({ token }: { token: string }) {
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('GET', '/guilds', undefined, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="GET /guilds">
-      <button onClick={run} disabled={loading}>
-        Lister les guilds
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function ChannelsCard({ token, defaultGuildId }: { token: string; defaultGuildId: string }) {
-  const [guildId, setGuildId] = useState(defaultGuildId);
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (defaultGuildId && !guildId) setGuildId(defaultGuildId);
-  }, [defaultGuildId, guildId]);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('GET', `/guilds/${guildId}/channels`, undefined, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="GET /guilds/:id/channels">
-      <Field label="Guild ID">
-        <input value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789" />
-      </Field>
-      <button onClick={run} disabled={loading || !guildId}>
-        Lister les channels
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function StatusCard({ token }: { token: string }) {
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('GET', '/status', undefined, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="GET /status">
-      <button onClick={run} disabled={loading}>
-        Voir le statut
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function VoicesCard({ token }: { token: string }) {
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('GET', '/voices', undefined, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="GET /voices">
-      <button onClick={run} disabled={loading}>
-        Lister les voix
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function JoinCard({
+function ChatArea({
+  channelName,
+  guildId,
   token,
-  defaultGuildId,
 }: {
+  channelName: string | null;
+  guildId: string;
   token: string;
-  defaultGuildId: string;
 }) {
-  const [guildId, setGuildId] = useState(defaultGuildId);
-  const [channelId, setChannelId] = useState('');
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (defaultGuildId && !guildId) setGuildId(defaultGuildId);
-  }, [defaultGuildId, guildId]);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('POST', '/voice/join', { guildId, channelId }, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="POST /voice/join">
-      <Field label="Guild ID">
-        <input value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789" />
-      </Field>
-      <Field label="Channel ID">
-        <input value={channelId} onChange={(e) => setChannelId(e.target.value)} placeholder="987654321" />
-      </Field>
-      <button onClick={run} disabled={loading || !guildId || !channelId}>
-        Rejoindre
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-function LeaveCard({
-  token,
-  defaultGuildId,
-}: {
-  token: string;
-  defaultGuildId: string;
-}) {
-  const [guildId, setGuildId] = useState(defaultGuildId);
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (defaultGuildId && !guildId) setGuildId(defaultGuildId);
-  }, [defaultGuildId, guildId]);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('POST', '/voice/leave', { guildId }, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Card title="POST /voice/leave">
-      <Field label="Guild ID">
-        <input value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789" />
-      </Field>
-      <button onClick={run} disabled={loading || !guildId}>
-        Quitter
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
-  );
-}
-
-interface Voice {
-  id: string;
-}
-
-function SpeakCard({
-  token,
-  defaultGuildId,
-}: {
-  token: string;
-  defaultGuildId: string;
-}) {
-  const [guildId, setGuildId] = useState(defaultGuildId);
-  const [text, setText] = useState('Bonjour à tous !');
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [voiceId, setVoiceId] = useState('');
+  const [messages, setMessages] = useState<Message[]>(SEED_MESSAGES);
+  const [draft, setDraft] = useState('');
+  const [voices, setVoices] = useState<{ id: string; language: string }[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState('fr_FR-siwis-medium');
   const [pitch, setPitch] = useState(0);
   const [tempo, setTempo] = useState(1);
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-  const prevToken = useRef('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Load available voices
+  useEffect(() => {
+    if (!token) return;
+    callApi('GET', '/voices', undefined, token).then((res) => {
+      if (res.ok && Array.isArray(res.data)) {
+        const list = res.data as { id: string; language: string }[];
+        setVoices(list);
+        // Keep current selection if it exists in the list, otherwise pick first
+        setSelectedVoice((prev) => {
+          const ids = list.map((v) => v.id);
+          return ids.includes(prev) ? prev : (ids[0] ?? prev);
+        });
+      }
+    });
+  }, [token]);
 
   useEffect(() => {
-    if (defaultGuildId && !guildId) setGuildId(defaultGuildId);
-  }, [defaultGuildId, guildId]);
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  useEffect(() => {
-    if (!token || token === prevToken.current) return;
-    prevToken.current = token;
-    callApi('GET', '/voices', undefined, token)
-      .then((res) => {
-        if (res.ok && Array.isArray(res.data)) {
-          const list = res.data as Voice[];
-          setVoices(list);
-          if (list.length > 0 && !voiceId) setVoiceId(list[0].id);
-        }
-      })
-      .catch(() => {});
-  }, [token, voiceId]);
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || !selectedVoice || !guildId) return;
+    setSendError(null);
+    setSending(true);
 
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(
-        await callApi('POST', '/speak', { guildId, text, voiceId, pitch, tempo }, token),
-      );
-    } finally {
-      setLoading(false);
+    const now = new Date();
+    const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+    const msgId = crypto.randomUUID();
+
+    setMessages((prev) => [
+      ...prev,
+      { id: msgId, author: TTS_BOT_NAME, content: text, time, color: TTS_BOT_COLOR },
+    ]);
+    setDraft('');
+
+    const res = await callApi('POST', '/speak', { guildId, text, voiceId: selectedVoice, pitch, tempo }, token);
+    if (!res.ok) {
+      const errMsg = (res.data as Record<string, unknown>)?.['error'] as string | undefined;
+      setSendError(errMsg ?? 'Erreur lors de la synthèse vocale');
     }
+    setSending(false);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
   return (
-    <Card title="POST /speak">
-      <Field label="Guild ID">
-        <input value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789" />
-      </Field>
-      <Field label="Texte">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} />
-      </Field>
-      <Field label="Voix">
-        <select value={voiceId} onChange={(e) => setVoiceId(e.target.value)}>
-          {voices.length === 0 && <option value="">— entrez un token pour charger —</option>}
-          {voices.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.id}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field label="Pitch (−24 à +24)">
-        <input
-          type="number"
-          value={pitch}
-          min={-24}
-          max={24}
-          onChange={(e) => setPitch(Number(e.target.value))}
-        />
-      </Field>
-      <Field label="Tempo (0.5 à 2.0)">
-        <input
-          type="number"
-          value={tempo}
-          min={0.5}
-          max={2}
-          step={0.1}
-          onChange={(e) => setTempo(Number(e.target.value))}
-        />
-      </Field>
-      <button onClick={run} disabled={loading || !guildId || !text || !voiceId}>
-        Parler
-      </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
+    <div className="chat-area">
+      <div className="chat-header">
+        <span className="chat-header-icon">🔊</span>
+        <span className="chat-header-name">{channelName ?? 'Aucun salon'}</span>
+      </div>
+
+      <div className="chat-messages">
+        {messages.map((msg, i) => {
+          const showHeader = i === 0 || messages[i - 1].author !== msg.author;
+          return (
+            <div key={msg.id} className={`chat-msg${showHeader ? ' with-header' : ' continued'}`}>
+              {showHeader ? (
+                <MiniAvatar name={msg.author} color={msg.color} />
+              ) : (
+                <div className="chat-avatar-spacer" />
+              )}
+              <div className="chat-msg-body">
+                {showHeader && (
+                  <div className="chat-msg-meta">
+                    <span className="chat-msg-author" style={{ color: msg.color }}>{msg.author}</span>
+                    <span className="chat-msg-time">{msg.time}</span>
+                  </div>
+                )}
+                <p className="chat-msg-text">{msg.content}</p>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="chat-input-area">
+        <div className="chat-identity-bar">
+          <div className="chat-identity-avatar" style={{ background: TTS_BOT_COLOR }}>T</div>
+          <span className="chat-identity-name" style={{ color: TTS_BOT_COLOR }}>{TTS_BOT_NAME}</span>
+          <span className="chat-identity-badge">BOT TTS</span>
+          {voices.length > 0 && (
+            <select
+              className="chat-voice-select"
+              value={selectedVoice}
+              onChange={(e) => setSelectedVoice(e.target.value)}
+            >
+              {voices.map((v) => (
+                <option key={v.id} value={v.id}>{v.id}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div className="chat-tts-controls">
+          <label className="chat-tts-control">
+            <span>Pitch</span>
+            <input
+              type="range"
+              min={-24}
+              max={24}
+              step={1}
+              value={pitch}
+              onChange={(e) => setPitch(Number(e.target.value))}
+              disabled={sending}
+            />
+            <strong>{pitch}</strong>
+          </label>
+          <label className="chat-tts-control">
+            <span>Vitesse</span>
+            <input
+              type="range"
+              min={0.5}
+              max={2}
+              step={0.05}
+              value={tempo}
+              onChange={(e) => setTempo(Number(e.target.value))}
+              disabled={sending}
+            />
+            <strong>{tempo.toFixed(2)}x</strong>
+          </label>
+        </div>
+        {sendError && <div className="chat-send-error">{sendError}</div>}
+        <div className="chat-input-bar">
+          <input
+            className="chat-input"
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder={channelName ? `Parler en tant que tts-bot dans #${channelName}…` : 'Rejoins un salon vocal pour parler…'}
+            disabled={!channelName || !token || sending}
+          />
+          <button
+            className="chat-send-btn"
+            onClick={send}
+            disabled={!draft.trim() || !channelName || !token || sending}
+          >
+            {sending ? '…' : '🔊 Parler'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function StopCard({
-  token,
-  defaultGuildId,
+// ---------------------------------------------------------------------------
+// Icons (inline SVG, Discord-style)
+// ---------------------------------------------------------------------------
+
+function IconSpeaker({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45204 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.757 20.772 12 20.407 12 20.002V4.00204C12 3.59704 11.757 3.23204 11.383 3.07904Z" />
+      <path d="M15.5 8.5C15.236 8.237 14.814 8.237 14.55 8.5C14.285 8.764 14.285 9.18 14.55 9.444C15.209 10.099 15.209 13.902 14.55 14.556C14.285 14.82 14.285 15.236 14.55 15.5C14.682 15.633 14.855 15.699 15.027 15.699C15.199 15.699 15.372 15.633 15.5 15.5C16.652 14.347 16.652 9.652 15.5 8.5Z" />
+      <path d="M17.7 6.2C17.437 5.935 17.013 5.934 16.749 6.197C16.484 6.46 16.484 6.885 16.747 7.149C18.372 8.775 18.372 15.225 16.747 16.851C16.483 17.115 16.484 17.54 16.749 17.803C16.882 17.934 17.055 18 17.226 18C17.397 18 17.569 17.934 17.7 17.801C19.817 15.685 19.819 8.316 17.7 6.2Z" />
+    </svg>
+  );
+}
+
+function IconSettings({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M19.738 10H22V14H19.738C19.498 14.953 19.1 15.832 18.57 16.608L20 18.034L17.18 20.854L15.752 19.425C14.974 19.954 14.09 20.352 13.135 20.591V22H8.866V20.592C7.908 20.352 7.023 19.951 6.24 19.418L4.818 20.841L2 18.017L3.432 16.585C2.897 15.807 2.496 14.922 2.254 13.96H0V10H2.254C2.496 9.046 2.9 8.163 3.44 7.391L2 5.98L4.818 3.16L6.24 4.587C7.018 4.051 7.904 3.651 8.866 3.414V2H13.135V3.414C14.09 3.651 14.97 4.043 15.74 4.571L17.164 3.158L19.986 5.978L18.563 7.393C19.107 8.169 19.497 9.049 19.738 10ZM12 16C14.2091 16 16 14.2091 16 12C16 9.79086 14.2091 8 12 8C9.79086 8 8 9.79086 8 12C8 14.2091 9.79086 16 12 16Z" />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Channel item
+// ---------------------------------------------------------------------------
+
+function ChannelItem({
+  channel,
+  active,
+  joining,
+  onClick,
 }: {
-  token: string;
-  defaultGuildId: string;
+  channel: Channel;
+  active: boolean;
+  joining: boolean;
+  onClick: () => void;
 }) {
-  const [guildId, setGuildId] = useState(defaultGuildId);
-  const [result, setResult] = useState<ApiResult>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (defaultGuildId && !guildId) setGuildId(defaultGuildId);
-  }, [defaultGuildId, guildId]);
-
-  const run = async () => {
-    setLoading(true);
-    try {
-      setResult(await callApi('POST', '/stop', { guildId }, token));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <Card title="POST /stop">
-      <Field label="Guild ID">
-        <input value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789" />
-      </Field>
-      <button onClick={run} disabled={loading || !guildId}>
-        Stop
+    <div className={`channel-row${active ? ' active' : ''}${joining ? ' joining' : ''}`}>
+      <button
+        className="channel-btn"
+        onClick={onClick}
+        disabled={joining}
+      >
+        <span className="channel-icon">
+          <IconSpeaker size={18} />
+        </span>
+        <span className="channel-name">{channel.name}</span>
+        {active && <span className="channel-live">LIVE</span>}
       </button>
-      <ResultBox result={result} loading={loading} />
-    </Card>
+
+      {channel.members.length > 0 && (
+        <ul className="member-list">
+          {channel.members.map((m) => (
+            <li key={m.id} className="member-item">
+              <img
+                className="member-avatar"
+                src={m.avatarUrl}
+                alt=""
+                width={20}
+                height={20}
+              />
+              <span className="member-name">{m.displayName}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Health status hook (polling on mount)
-// ---------------------------------------------------------------------------
-
-type HealthStatus = 'unknown' | 'online' | 'degraded' | 'offline';
-
-function useHealthStatus() {
-  const [status, setStatus] = useState<HealthStatus>('unknown');
-
-  useEffect(() => {
-    callApi('GET', '/health', undefined, '', true)
-      .then((res) => {
-        const data = res.data as Record<string, unknown> | null;
-        if (res.ok && data && data['ok'] === true) setStatus('online');
-        else setStatus('degraded');
-      })
-      .catch(() => setStatus('offline'));
-  }, []);
-
-  const dotColor: Record<HealthStatus, string> = {
-    unknown: '#555',
-    online: '#4caf50',
-    degraded: '#ff9800',
-    offline: '#f44336',
-  };
-
-  const label: Record<HealthStatus, string> = {
-    unknown: '…',
-    online: 'Online',
-    degraded: 'Dégradé',
-    offline: 'Hors ligne',
-  };
-
-  return { dotColor: dotColor[status], label: label[status] };
 }
 
 // ---------------------------------------------------------------------------
@@ -451,42 +350,194 @@ function useHealthStatus() {
 
 export default function App() {
   const [token, setToken] = useLocalStorage('tts_api_token', '');
-  const { dotColor, label } = useHealthStatus();
+  const [showSettings, setShowSettings] = useState(!localStorage.getItem('tts_api_token'));
+  const [guildId, setGuildId] = useState('');
+  const [guildName, setGuildName] = useState('');
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+  const [joiningChannelId, setJoiningChannelId] = useState<string | null>(null);
+  const [online, setOnline] = useState<boolean | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
-  // Read the default guild ID injected by the server (not available in the
-  // React SPA, so we fall back to empty string — users can fill it manually).
-  const defaultGuildId = '';
+  // 1. Fetch public config (guildId) + health
+  useEffect(() => {
+    callApi('GET', '/config', undefined, '', true).then((res) => {
+      const d = res.data as Record<string, unknown> | null;
+      if (res.ok && typeof d?.['guildId'] === 'string') setGuildId(d['guildId'] as string);
+    });
+    callApi('GET', '/health', undefined, '', true).then((res) => {
+      setOnline(res.ok && (res.data as Record<string, unknown>)?.['ok'] === true);
+    });
+  }, []);
+
+  // 2. Fetch channels + guild name when guildId or token changes
+  useEffect(() => {
+    if (!guildId || !token) return;
+    callApi('GET', `/guilds/${guildId}/channels`, undefined, token).then((res) => {
+      if (res.ok && Array.isArray(res.data)) setChannels(res.data as Channel[]);
+    });
+    callApi('GET', '/guilds', undefined, token).then((res) => {
+      if (res.ok && Array.isArray(res.data)) {
+        const guild = (res.data as { id: string; name: string }[]).find((g) => g.id === guildId);
+        if (guild) setGuildName(guild.name);
+      }
+    });
+  }, [guildId, token]);
+
+  // 3. Fetch initial status once, then socket handles realtime updates
+  const fetchStatus = useCallback(() => {
+    if (!token || !guildId) return;
+    callApi('GET', '/status', undefined, token).then((res) => {
+      if (!res.ok || !res.data) return;
+      const guilds = (res.data as { guilds: { guildId: string; connected: boolean; channelId?: string }[] }).guilds;
+      const entry = guilds.find((g) => g.guildId === guildId);
+      setActiveChannelId(entry?.connected && entry.channelId ? entry.channelId : null);
+    });
+    callApi('GET', `/guilds/${guildId}/channels`, undefined, token).then((res) => {
+      if (res.ok && Array.isArray(res.data)) setChannels(res.data as Channel[]);
+    });
+  }, [token, guildId]);
+
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  // 4. Realtime channel + status updates through Socket.IO
+  useEffect(() => {
+    if (!token || !guildId) {
+      socketRef.current?.disconnect();
+      socketRef.current = null;
+      return;
+    }
+
+    const socket = io('/', {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      setOnline(true);
+      socket.emit('guild:subscribe', { guildId });
+    });
+
+    socket.on('disconnect', () => {
+      setOnline(false);
+    });
+
+    socket.on('connect_error', () => {
+      setOnline(false);
+    });
+
+    socket.on('guild:update', (state: GuildRealtimeState) => {
+      if (state.guildId !== guildId) return;
+      setActiveChannelId(state.connected && state.channelId ? state.channelId : null);
+      setChannels(state.channels);
+    });
+
+    return () => {
+      socket.emit('guild:unsubscribe', { guildId });
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [token, guildId]);
+
+  // 5. Join / leave on click
+  const handleChannelClick = async (channel: Channel) => {
+    if (joiningChannelId) return;
+    setJoiningChannelId(channel.id);
+
+    if (activeChannelId === channel.id) {
+      await callApi('POST', '/voice/leave', { guildId }, token);
+      setActiveChannelId(null);
+    } else {
+      await callApi('POST', '/voice/join', { guildId, channelId: channel.id }, token);
+      setActiveChannelId(channel.id);
+    }
+
+    setJoiningChannelId(null);
+  };
+
+  const activeChannelName = channels.find((c) => c.id === activeChannelId)?.name;
 
   return (
-    <>
-      <h1>
-        🤖 TTS Discord Bot —{' '}
-        <span className="health-dot" style={{ background: dotColor }} />
-        {label}
-      </h1>
-
-      <div className="token-bar">
-        <label htmlFor="g-token">API Token :</label>
-        <input
-          id="g-token"
-          type="password"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          placeholder="changer-moi"
+    <div className="layout">
+    <div className="sidebar">
+      {/* Server header */}
+      <div className="server-header">
+        <span className="server-name">{guildName || 'TTS Bot'}</span>
+        <span
+          className={`status-dot${online === true ? ' online' : online === false ? ' offline' : ''}`}
+          title={online === true ? 'En ligne' : online === false ? 'Hors ligne' : '…'}
         />
       </div>
 
-      <div className="grid">
-        <HealthCard token={token} />
-        <GuildsCard token={token} />
-        <ChannelsCard token={token} defaultGuildId={defaultGuildId} />
-        <StatusCard token={token} />
-        <VoicesCard token={token} />
-        <JoinCard token={token} defaultGuildId={defaultGuildId} />
-        <LeaveCard token={token} defaultGuildId={defaultGuildId} />
-        <SpeakCard token={token} defaultGuildId={defaultGuildId} />
-        <StopCard token={token} defaultGuildId={defaultGuildId} />
+      {/* Channel list */}
+      <div className="channel-section">
+        <div className="section-label">Salons vocaux</div>
+
+        {!token && (
+          <p className="hint">Entrez votre token dans les paramètres pour charger les salons.</p>
+        )}
+        {token && channels.length === 0 && (
+          <p className="hint">Chargement…</p>
+        )}
+
+        {channels.map((ch) => (
+          <ChannelItem
+            key={ch.id}
+            channel={ch}
+            active={activeChannelId === ch.id}
+            joining={joiningChannelId === ch.id}
+            onClick={() => handleChannelClick(ch)}
+          />
+        ))}
       </div>
-    </>
+
+      {/* Footer */}
+      <div className="sidebar-footer">
+        {activeChannelName && (
+          <div className="now-playing">
+            <IconSpeaker size={14} />
+            <span>{activeChannelName}</span>
+            <button
+              className="leave-btn"
+              title="Quitter le salon"
+              onClick={async () => {
+                await callApi('POST', '/voice/leave', { guildId }, token);
+                setActiveChannelId(null);
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <button
+          className={`settings-toggle${showSettings ? ' open' : ''}`}
+          onClick={() => setShowSettings((s) => !s)}
+        >
+          <IconSettings size={16} />
+          <span>Paramètres</span>
+        </button>
+
+        {showSettings && (
+          <div className="token-field">
+            <label htmlFor="api-token">API Token</label>
+            <input
+              id="api-token"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="Entrez votre token…"
+              autoComplete="off"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+    <ChatArea channelName={activeChannelName ?? null} guildId={guildId} token={token} />
+    </div>
   );
 }
+
