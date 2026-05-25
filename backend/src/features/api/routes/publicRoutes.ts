@@ -14,5 +14,9 @@ export function buildPublicRoutes(): Router {
     res.json({ ok: true });
   });
 
+  router.get('/config', (_req, res) => {
+    res.json({ guildId: config.GUILD_ID });
+  });
+
   return router;
 }
