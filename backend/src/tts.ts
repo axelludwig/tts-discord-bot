@@ -14,7 +14,7 @@ type Voice = {
 const voices = new Map<string, Voice>();
 
 export function loadVoices(): void {
-  const voicesDir = resolve(config.VOICES_DIR);
+  const voicesDir = config.VOICES_DIR;
   if (!existsSync(voicesDir)) {
     console.warn(`[tts] Voices directory not found: ${voicesDir}`);
     return;
@@ -59,7 +59,7 @@ export function synthesize(text: string, voiceId: string): Readable {
   const voice = voices.get(voiceId);
   if (!voice) throw new Error(`Voice not found: ${voiceId}`);
 
-  const piperBin = resolve(config.PIPER_BIN);
+  const piperBin = config.PIPER_BIN;
   const piper = spawn(piperBin, ['--model', voice.modelPath, '--output_raw']);
 
   piper.stderr.on('data', (d: Buffer) => console.error('[piper]', d.toString()));
@@ -67,10 +67,6 @@ export function synthesize(text: string, voiceId: string): Readable {
 
   piper.stdin.write(text);
   piper.stdin.end();
-
-  piper.stdout.on('close', () => {
-    if (!piper.killed) piper.kill();
-  });
 
   return piper.stdout;
 }

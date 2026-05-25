@@ -22,9 +22,5 @@ export function applyPitchTempo(
 
   input.pipe(ff.stdin);
 
-  ff.stdout.on('close', () => {
-    if (!ff.killed) ff.kill();
-  });
-
   return ff.stdout;
 }
