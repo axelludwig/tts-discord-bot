@@ -4,6 +4,7 @@ dist/
 bin/
 voices/
 .env
+backend/piper/
 
 # Logs
 logs
