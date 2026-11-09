@@ -7,6 +7,9 @@ dist/
 backend/piper/
 backend/voices/
 
+# Runtime data (per-user voices, /tts-salon setting)
+backend/data/
+
 # Secrets
 .env
 .env.*

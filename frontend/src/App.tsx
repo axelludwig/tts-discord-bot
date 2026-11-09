@@ -131,6 +131,7 @@ function QueuePanel({ queue, guildId, token }: { queue: QueueState; guildId: str
         {queue.current && (
           <li className="queue-item current">
             <span className="queue-badge">▶</span>
+            {queue.current.author && <span className="queue-author">{queue.current.author}</span>}
             <span className="queue-text">{queue.current.text}</span>
             <span className="queue-voice">{queue.current.voiceId}</span>
           </li>
@@ -138,6 +139,7 @@ function QueuePanel({ queue, guildId, token }: { queue: QueueState; guildId: str
         {queue.pending.map((item, i) => (
           <li key={item.id} className="queue-item">
             <span className="queue-badge">{i + 1}</span>
+            {item.author && <span className="queue-author">{item.author}</span>}
             <span className="queue-text">{item.text}</span>
             <span className="queue-voice">{item.voiceId}</span>
             <button className="queue-remove" title="Retirer" onClick={() => removeItem(item.id)}>✕</button>

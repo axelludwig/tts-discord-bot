@@ -63,6 +63,15 @@ export const config = {
   VOICES_DIR: resolvePath(process.env['VOICES_DIR'], resolve(backendDir, 'voices')),
   FFMPEG_BIN: resolveFfmpeg(),
   DASHBOARD_DIR: resolve(projectRoot, 'frontend', 'dist'),
+  SETTINGS_FILE: resolve(backendDir, process.env['SETTINGS_FILE']?.trim() || 'data/settings.json'),
+
+  /** Voice used when neither the request nor the user's /voix preference picks one. */
+  DEFAULT_VOICE: process.env['DEFAULT_VOICE']?.trim() || 'fr_FR-siwis-medium',
+  /**
+   * Reading a text channel aloud needs the privileged "Message Content" intent.
+   * Off by default: enabling it without ticking the box in the Developer Portal makes login fail.
+   */
+  ENABLE_TEXT_CHANNEL: process.env['ENABLE_TEXT_CHANNEL'] === 'true',
 
   MAX_QUEUE_LENGTH: intEnv('MAX_QUEUE_LENGTH', 20),
   MAX_TEXT_LENGTH: intEnv('MAX_TEXT_LENGTH', 500),

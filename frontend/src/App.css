@@ -663,6 +663,16 @@ body {
   white-space: nowrap;
 }
 
+.queue-author {
+  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #f2f3f5;
+}
+
 .queue-voice {
   flex-shrink: 0;
   color: #949ba4;

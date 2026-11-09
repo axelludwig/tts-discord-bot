@@ -50,3 +50,12 @@ export function listVoices(): Voice[] {
 export function getVoice(id: string): Voice | undefined {
   return voices.get(id);
 }
+
+/** Picks the first voice that exists among the candidates, then the configured default, then any. */
+export function resolveVoice(...candidates: (string | undefined)[]): Voice | undefined {
+  for (const id of [...candidates, config.DEFAULT_VOICE]) {
+    const voice = id ? voices.get(id) : undefined;
+    if (voice) return voice;
+  }
+  return voices.values().next().value;
+}
