@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { loginBot } from './bot.js';
 import { startApi } from './api.js';
-import { loadVoices } from './tts.js';
+import { loadVoices } from './features/speech/voices.js';
 
 async function main() {
   loadVoices();

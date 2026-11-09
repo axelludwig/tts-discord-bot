@@ -1,11 +1,16 @@
 {
   "name": "tts-discord-bot-workspace",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "npm run dev --prefix backend",
-    "start": "npm run start --prefix backend",
-    "build": "npm run build --prefix backend",
+    "setup": "node scripts/setup.mjs",
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "npm run dev --prefix backend",
     "dev:ui": "npm run dev --prefix frontend",
-    "install:all": "npm install --prefix backend && npm install --prefix frontend"
+    "build": "npm run build --prefix frontend && npm run build --prefix backend",
+    "start": "npm run start:prod --prefix backend",
+    "typecheck": "npm run typecheck --prefix backend && npx --prefix frontend tsc --noEmit -p frontend"
   }
 }

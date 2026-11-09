@@ -26,16 +26,31 @@ interface Message {
   color: string;
 }
 
+interface QueueItem {
+  id: string;
+  text: string;
+  voiceId: string;
+  author?: string;
+}
+
+interface QueueState {
+  current: QueueItem | null;
+  pending: QueueItem[];
+}
+
+const EMPTY_QUEUE: QueueState = { current: null, pending: [] };
+
 interface GuildRealtimeState {
   guildId: string;
   connected: boolean;
   channelId?: string;
   playing: boolean;
+  queue: QueueState;
   channels: Channel[];
 }
 
 // ---------------------------------------------------------------------------
-// Seed data
+// Colors
 // ---------------------------------------------------------------------------
 
 const COLORS = ['#5865f2', '#eb459e', '#57f287', '#fee75c', '#ed4245', '#3ba55c', '#faa61a'];
@@ -44,15 +59,6 @@ function seedColor(name: string) {
   for (let i = 0; i < name.length; i++) n += name.charCodeAt(i);
   return COLORS[n % COLORS.length];
 }
-
-const SEED_MESSAGES: Message[] = [
-  { id: '1', author: 'linkenparis ^-^', content: 'Salut tout le monde !', time: '10:28', color: seedColor('linkenparis') },
-  { id: '2', author: 'Guitron le filou', content: 'Hey ! 👋', time: '10:29', color: seedColor('Guitron') },
-  { id: '3', author: 'Gyzee the bee', content: 'Coucou 🐝', time: '10:30', color: seedColor('Gyzee') },
-  { id: '4', author: 'Fossason', content: "Quelqu'un a du beurre ?", time: '10:31', color: seedColor('Fossason') },
-  { id: '5', author: 'tts-bot', content: 'Bonjour à tous ! Je suis prêt à parler.', time: '10:31', color: seedColor('tts-bot') },
-  { id: '6', author: 'linkenparis ^-^', content: 'Super, dis quelque chose !', time: '10:32', color: seedColor('linkenparis') },
-];
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -105,16 +111,55 @@ function MiniAvatar({ name, color }: { name: string; color: string }) {
 const TTS_BOT_NAME = 'tts-bot';
 const TTS_BOT_COLOR = seedColor(TTS_BOT_NAME);
 
+function QueuePanel({ queue, guildId, token }: { queue: QueueState; guildId: string; token: string }) {
+  if (!queue.current && queue.pending.length === 0) return null;
+  const removeItem = (id: string) => callApi('DELETE', `/queue/${guildId}/${id}`, undefined, token);
+
+  return (
+    <div className="queue-panel">
+      <div className="queue-header">
+        <span className="queue-title">File d'attente</span>
+        <span className="queue-count">{queue.pending.length} en attente</span>
+        <button className="queue-btn" onClick={() => callApi('POST', '/skip', { guildId }, token)} disabled={!queue.current}>
+          ⏭ Passer
+        </button>
+        <button className="queue-btn danger" onClick={() => callApi('POST', '/stop', { guildId }, token)}>
+          ⏹ Tout arrêter
+        </button>
+      </div>
+      <ol className="queue-list">
+        {queue.current && (
+          <li className="queue-item current">
+            <span className="queue-badge">▶</span>
+            <span className="queue-text">{queue.current.text}</span>
+            <span className="queue-voice">{queue.current.voiceId}</span>
+          </li>
+        )}
+        {queue.pending.map((item, i) => (
+          <li key={item.id} className="queue-item">
+            <span className="queue-badge">{i + 1}</span>
+            <span className="queue-text">{item.text}</span>
+            <span className="queue-voice">{item.voiceId}</span>
+            <button className="queue-remove" title="Retirer" onClick={() => removeItem(item.id)}>✕</button>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function ChatArea({
   channelName,
   guildId,
   token,
+  queue,
 }: {
   channelName: string | null;
   guildId: string;
   token: string;
+  queue: QueueState;
 }) {
-  const [messages, setMessages] = useState<Message[]>(SEED_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [voices, setVoices] = useState<{ id: string; language: string }[]>([]);
   const [selectedVoice, setSelectedVoice] = useState('fr_FR-siwis-medium');
@@ -180,6 +225,9 @@ function ChatArea({
       </div>
 
       <div className="chat-messages">
+        {messages.length === 0 && (
+          <p className="chat-empty">Les messages envoyés pendant cette session apparaîtront ici.</p>
+        )}
         {messages.map((msg, i) => {
           const showHeader = i === 0 || messages[i - 1].author !== msg.author;
           return (
@@ -205,6 +253,7 @@ function ChatArea({
       </div>
 
       <div className="chat-input-area">
+        <QueuePanel queue={queue} guildId={guildId} token={token} />
         <div className="chat-identity-bar">
           <div className="chat-identity-avatar" style={{ background: TTS_BOT_COLOR }}>T</div>
           <span className="chat-identity-name" style={{ color: TTS_BOT_COLOR }}>{TTS_BOT_NAME}</span>
@@ -357,6 +406,7 @@ export default function App() {
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [joiningChannelId, setJoiningChannelId] = useState<string | null>(null);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [queue, setQueue] = useState<QueueState>(EMPTY_QUEUE);
   const socketRef = useRef<Socket | null>(null);
 
   // 1. Fetch public config (guildId) + health
@@ -433,6 +483,7 @@ export default function App() {
       if (state.guildId !== guildId) return;
       setActiveChannelId(state.connected && state.channelId ? state.channelId : null);
       setChannels(state.channels);
+      setQueue(state.queue ?? EMPTY_QUEUE);
     });
 
     return () => {
@@ -536,7 +587,7 @@ export default function App() {
         )}
       </div>
     </div>
-    <ChatArea channelName={activeChannelName ?? null} guildId={guildId} token={token} />
+    <ChatArea channelName={activeChannelName ?? null} guildId={guildId} token={token} queue={queue} />
     </div>
   );
 }

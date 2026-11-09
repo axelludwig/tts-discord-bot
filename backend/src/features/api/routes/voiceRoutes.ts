@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { client } from '../../../bot.js';
-import { getConnection, joinChannel, leaveChannel } from '../../../voice.js';
-import { isPlaying } from '../../../player.js';
-import { listVoices } from '../../../tts.js';
+import { isPlaying } from '../../speech/queue.js';
+import { listVoices } from '../../speech/voices.js';
+import { getConnectedChannelId, joinChannel, leaveChannel } from '../../voice/index.js';
 
 export function buildVoiceRoutes(): Router {
   const router = Router();
@@ -49,12 +49,10 @@ export function buildVoiceRoutes(): Router {
 
   router.get('/status', (_req, res) => {
     const guilds = client.guilds.cache.map(g => {
-      const connection = getConnection(g.id);
-      const connected = !!connection;
-      const channelId = connected ? (connection as any).joinConfig?.channelId : undefined;
+      const channelId = getConnectedChannelId(g.id);
       return {
         guildId: g.id,
-        connected,
+        connected: !!channelId,
         ...(channelId ? { channelId } : {}),
         playing: isPlaying(g.id),
       };

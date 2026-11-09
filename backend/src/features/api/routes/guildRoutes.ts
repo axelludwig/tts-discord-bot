@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { client } from '../../../bot.js';
-import { listVoiceChannels } from '../../../voice.js';
+import { listVoiceChannels } from '../../voice/index.js';
 
 export function buildGuildRoutes(): Router {
   const router = Router();

@@ -1,55 +1,69 @@
 import { Router } from 'express';
-import { stop } from '../../../player.js';
-import { speak } from '../../../speak.js';
+import { config } from '../../../config.js';
+import { QueueError, clear, enqueue, getQueueState, remove, skip } from '../../speech/queue.js';
+
+function requireGuildId(body: any): string | null {
+  return typeof body?.guildId === 'string' && body.guildId ? body.guildId : null;
+}
 
 export function buildSpeechRoutes(): Router {
   const router = Router();
 
   router.post('/speak', (req, res) => {
-    const { guildId, text, voiceId, pitch = 0, tempo = 1 } = req.body;
+    const { text, voiceId, pitch = 0, tempo = 1, author } = req.body ?? {};
+    const guildId = requireGuildId(req.body);
 
-    if (typeof guildId !== 'string' || !guildId) {
-      res.status(400).json({ error: 'guildId required' });
-      return;
+    if (!guildId) return void res.status(400).json({ error: 'guildId required' });
+    if (typeof text !== 'string' || !text.trim()) return void res.status(400).json({ error: 'text required' });
+    if (text.length > config.MAX_TEXT_LENGTH) {
+      return void res.status(400).json({ error: `text too long (${config.MAX_TEXT_LENGTH} characters max)` });
     }
-    if (typeof text !== 'string' || !text.trim()) {
-      res.status(400).json({ error: 'text required' });
-      return;
-    }
-    if (typeof voiceId !== 'string' || !voiceId) {
-      res.status(400).json({ error: 'voiceId required' });
-      return;
-    }
+    if (typeof voiceId !== 'string' || !voiceId) return void res.status(400).json({ error: 'voiceId required' });
     if (typeof pitch !== 'number' || pitch < -24 || pitch > 24) {
-      res.status(400).json({ error: 'pitch must be a number between -24 and 24' });
-      return;
+      return void res.status(400).json({ error: 'pitch must be a number between -24 and 24' });
     }
     if (typeof tempo !== 'number' || tempo < 0.5 || tempo > 2.0) {
-      res.status(400).json({ error: 'tempo must be a number between 0.5 and 2.0' });
-      return;
+      return void res.status(400).json({ error: 'tempo must be a number between 0.5 and 2.0' });
     }
 
     try {
-      speak(guildId, text, voiceId, pitch, tempo);
-      res.json({ ok: true });
-    } catch (err: any) {
-      const msg: string = err?.message ?? 'Internal error';
-      if (msg.includes('No active voice connection') || msg.includes('Voice not found')) {
-        res.status(404).json({ error: msg });
-      } else {
-        res.status(500).json({ error: msg });
-      }
+      const { item, position } = enqueue(guildId, {
+        text: text.trim(),
+        voiceId,
+        pitch,
+        tempo,
+        author: typeof author === 'string' && author ? author.slice(0, 64) : 'dashboard',
+      });
+      res.json({ ok: true, id: item.id, position });
+    } catch (err) {
+      if (err instanceof QueueError) return void res.status(err.status).json({ error: err.message });
+      console.error('[api] /speak failed:', err);
+      res.status(500).json({ error: 'Internal error' });
     }
   });
 
-  router.post('/stop', (req, res) => {
-    const { guildId } = req.body;
-    if (typeof guildId !== 'string' || !guildId) {
-      res.status(400).json({ error: 'guildId required' });
-      return;
-    }
+  router.get('/queue/:guildId', (req, res) => {
+    res.json(getQueueState(req.params.guildId));
+  });
 
-    stop(guildId);
+  router.post('/skip', (req, res) => {
+    const guildId = requireGuildId(req.body);
+    if (!guildId) return void res.status(400).json({ error: 'guildId required' });
+    skip(guildId);
+    res.json({ ok: true });
+  });
+
+  router.delete('/queue/:guildId/:itemId', (req, res) => {
+    const removed = remove(req.params.guildId, req.params.itemId);
+    if (!removed) return void res.status(404).json({ error: 'Queue item not found' });
+    res.json({ ok: true });
+  });
+
+  /** Stops playback and empties the queue. */
+  router.post('/stop', (req, res) => {
+    const guildId = requireGuildId(req.body);
+    if (!guildId) return void res.status(400).json({ error: 'guildId required' });
+    clear(guildId);
     res.json({ ok: true });
   });
 

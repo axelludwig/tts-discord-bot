@@ -1,13 +1,10 @@
-import { getConnection, removeConnection } from './connections.js';
-import { joinChannel } from './join.js';
-import { listVoiceChannels } from './channels.js';
+import { getConnection } from './connections.js';
 
-export { joinChannel, listVoiceChannels, getConnection };
+export { getConnectedChannelId, getConnection } from './connections.js';
+export { joinChannel } from './join.js';
+export { listVoiceChannels } from './channels.js';
 
+/** Destroying the connection triggers the cleanup registered in join.ts (connection map + queue). */
 export function leaveChannel(guildId: string): void {
-  const connection = getConnection(guildId);
-  if (connection) {
-    connection.destroy();
-    removeConnection(guildId);
-  }
+  getConnection(guildId)?.destroy();
 }

@@ -1,17 +1,8 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"label": "npm install",
-			"type": "shell",
-			"command": "npm install",
-			"group": "build"
-		},
-		{
-			"label": "tsc check",
-			"type": "shell",
-			"command": "npx tsc --noEmit",
-			"group": "build"
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    { "label": "setup", "type": "shell", "command": "npm run setup", "problemMatcher": [] },
+    { "label": "dev", "type": "shell", "command": "npm run dev", "isBackground": true, "problemMatcher": [] },
+    { "label": "typecheck", "type": "shell", "command": "npm run typecheck", "group": "build", "problemMatcher": ["$tsc"] }
+  ]
 }

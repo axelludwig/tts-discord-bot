@@ -566,3 +566,121 @@ body {
   background: #4e5058;
   cursor: not-allowed;
 }
+
+/* ---------------------------------------------------------------------------
+   Queue
+   --------------------------------------------------------------------------- */
+
+.chat-empty {
+  margin: auto;
+  color: #949ba4;
+  font-size: .875rem;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.queue-panel {
+  margin: 0 16px 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #2b2d31;
+  font-size: .8125rem;
+}
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.queue-title {
+  font-weight: 600;
+  color: #f2f3f5;
+  text-transform: uppercase;
+  font-size: .75rem;
+  letter-spacing: .02em;
+}
+
+.queue-count {
+  color: #949ba4;
+  margin-right: auto;
+}
+
+.queue-btn {
+  background: #4e5058;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+.queue-btn:hover:not(:disabled) { background: #6d6f78; }
+.queue-btn:disabled { opacity: .5; cursor: default; }
+.queue-btn.danger:hover { background: #da373c; }
+
+.queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  color: #dbdee1;
+  min-width: 0;
+}
+
+.queue-item.current { background: rgba(88, 101, 242, .18); }
+
+.queue-badge {
+  flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+  color: #949ba4;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-item.current .queue-badge { color: #5865f2; }
+
+.queue-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-voice {
+  flex-shrink: 0;
+  color: #949ba4;
+  font-size: .6875rem;
+}
+
+.queue-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: #949ba4;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+}
+
+.queue-remove:hover { color: #fff; background: #da373c; }
+
+@media (max-width: 640px) {
+  .queue-voice { display: none; }
+}
