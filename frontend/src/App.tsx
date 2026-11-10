@@ -170,6 +170,12 @@ function ChatArea({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // The input is disabled while sending, which drops focus: give it back once done.
+  useEffect(() => {
+    if (!sending) inputRef.current?.focus();
+  }, [sending]);
 
   // Load available voices
   useEffect(() => {
@@ -303,6 +309,7 @@ function ChatArea({
         {sendError && <div className="chat-send-error">{sendError}</div>}
         <div className="chat-input-bar">
           <input
+            ref={inputRef}
             className="chat-input"
             type="text"
             value={draft}
