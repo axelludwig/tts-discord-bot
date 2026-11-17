@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { config } from '../../config.js';
 
@@ -9,10 +10,22 @@ export interface UserVoicePrefs {
   tempo?: number;
 }
 
+/** Saved message shown as a quick-send button in the dashboard. */
+export interface Preset {
+  id: string;
+  label: string;
+  text: string;
+  /** When unset, the dashboard's current voice/pitch/tempo are used. */
+  voiceId?: string;
+  pitch?: number;
+  tempo?: number;
+}
+
 export interface GuildSettings {
   /** Text channel whose messages are read aloud automatically (/tts-salon). */
   ttsChannelId?: string;
   users: Record<string, UserVoicePrefs>;
+  presets?: Preset[];
 }
 
 type Store = Record<string, GuildSettings>;
@@ -63,4 +76,43 @@ export function setUserPrefs(guildId: string, userId: string, prefs: UserVoicePr
 export function resetUserPrefs(guildId: string, userId: string): void {
   delete guild(guildId).users[userId];
   save();
+}
+
+export function listPresets(guildId: string): Preset[] {
+  return store[guildId]?.presets ?? [];
+}
+
+export function createPreset(guildId: string, data: Omit<Preset, 'id'>): Preset {
+  const preset: Preset = { id: randomUUID(), ...data };
+  (guild(guildId).presets ??= []).push(preset);
+  save();
+  return preset;
+}
+
+/** Replaces every field but the id. Returns null if the preset does not exist. */
+export function updatePreset(guildId: string, id: string, data: Omit<Preset, 'id'>): Preset | null {
+  const presets = guild(guildId).presets ?? [];
+  const index = presets.findIndex(p => p.id === id);
+  if (index === -1) return null;
+  presets[index] = { id, ...data };
+  save();
+  return presets[index];
+}
+
+export function deletePreset(guildId: string, id: string): boolean {
+  const presets = guild(guildId).presets ?? [];
+  const index = presets.findIndex(p => p.id === id);
+  if (index === -1) return false;
+  presets.splice(index, 1);
+  save();
+  return true;
+}
+
+/** Reorders presets to follow `ids`; unknown ids are ignored, missing ones keep their relative order at the end. */
+export function reorderPresets(guildId: string, ids: string[]): Preset[] {
+  const presets = guild(guildId).presets ?? [];
+  const rank = new Map(ids.map((id, i) => [id, i]));
+  presets.sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+  save();
+  return presets;
 }

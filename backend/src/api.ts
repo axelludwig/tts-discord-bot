@@ -6,10 +6,13 @@ import { client } from './bot.js';
 import { config } from './config.js';
 import { authMiddleware } from './features/api/auth.js';
 import { buildGuildRoutes } from './features/api/routes/guildRoutes.js';
+import { buildPresetRoutes } from './features/api/routes/presetRoutes.js';
+import { buildPronunciationRoutes } from './features/api/routes/pronunciationRoutes.js';
 import { buildPublicRoutes } from './features/api/routes/publicRoutes.js';
 import { buildSpeechRoutes } from './features/api/routes/speechRoutes.js';
 import { buildVoiceRoutes } from './features/api/routes/voiceRoutes.js';
 import { onGuildChange } from './features/realtime/events.js';
+import { listPresets } from './features/settings/store.js';
 import { getQueueState } from './features/speech/queue.js';
 import { getConnectedChannelId, listVoiceChannels } from './features/voice/index.js';
 
@@ -22,6 +25,8 @@ app.use(authMiddleware);
 app.use(buildGuildRoutes());
 app.use(buildVoiceRoutes());
 app.use(buildSpeechRoutes());
+app.use(buildPresetRoutes());
+app.use(buildPronunciationRoutes());
 
 export function buildGuildState(guildId: string) {
   const channelId = getConnectedChannelId(guildId);
@@ -33,6 +38,7 @@ export function buildGuildState(guildId: string) {
     playing: !!queue.current,
     queue,
     channels: listVoiceChannels(guildId),
+    presets: listPresets(guildId),
   };
 }
 

@@ -55,10 +55,23 @@ Les réponses ne sont visibles que par la personne qui lance la commande. Pour `
 | `/queue` | Affiche la file |
 | `/voix [voix] [pitch] [vitesse] [reset]` | Règle ta voix par défaut (sans option : affiche tes réglages) |
 | `/tts-salon [salon]` | *(Gérer le serveur)* Lit à voix haute les messages d'un salon texte. Sans option, désactive. |
+| `/prononciation tester texte` | Montre comment le texte sera lu (texte réécrit, phonèmes) et le lit si tu es avec le bot |
+| `/prononciation ajouter mot dire [casse]` | *(Gérer le serveur)* Fait lire `mot` comme `dire`, ex. `Teams` → `timmze` |
+| `/prononciation retirer mot` / `liste` | *(retirer : Gérer le serveur)* Gère les prononciations ajoutées |
 
 Avec `/tts-salon`, un message n'est lu que si son auteur est dans le salon vocal du bot. Les messages qui commencent par `//` sont ignorés, et les liens, emojis et blocs de code sont simplifiés. Cette fonction demande `ENABLE_TEXT_CHANNEL=true` et l'intent *Message Content*.
 
 Les commandes sont enregistrées au démarrage sur `GUILD_ID` (elles apparaissent tout de suite). Sans `GUILD_ID`, elles sont enregistrées globalement et peuvent mettre jusqu'à une heure à apparaître. Les réglages (`/voix`, `/tts-salon`) sont stockés dans `backend/data/settings.json`.
+
+## Prononciation (anglais, marques, sigles)
+
+Les voix sont françaises. espeak-ng, qui fournit les phonèmes à Piper, connaît beaucoup de mots anglais, mais il leur donne des phonèmes anglais (ɪ, θ, ɹ, aɪ…) que les voix françaises n'ont jamais entendus et prononcent mal. Avant la synthèse (Discord, dashboard et extension), `backend/src/features/pronunciation/` réécrit donc le texte en trois couches :
+
+1. **Lexique** : remplacements explicites, sur des mots entiers, sans tenir compte de la casse sauf demande. Ceux par défaut sont dans `defaultLexicon.ts`. Ceux ajoutés depuis `/prononciation` ou le dashboard (🗣️ *Prononciations*) sont dans `backend/data/lexicon.json`, communs à tous les serveurs, et priment sur les défauts.
+2. **Sigles** : un sigle lu à l'anglaise (`AFK`, `afk`) est épelé avec les noms de lettres français (« a èf ka »).
+3. **Auto** : un autre mot lu à l'anglaise est réécrit à partir de ses phonèmes en orthographe française (`Windows` → `ouinndoze`, `Steam` → `stimme`). La réécriture n'est gardée que si espeak la lit ensuite avec des phonèmes français uniquement. Sinon le mot est signalé dans le dashboard (« pas de correction »).
+
+Le phonémiseur est `piper_phonemize`, livré avec Piper (environ 15 ms par message, résultats en cache). Pour écrire une prononciation, il faut l'écrire comme un mot français : « nn »/« mm » évitent une nasale (`ouinndoze`), « aill » donne « aï » (`laillve`), un `e` final fait entendre la consonne (`stimme`). Le champ « Lu comme » du dashboard affiche les phonèmes pendant la saisie. Test en ligne de commande, depuis `backend/` : `npx tsx scripts/pronunciation-test.ts "On se fait un Teams ?"`.
 
 ## Configuration (`backend/.env`)
 
@@ -77,6 +90,7 @@ Les commandes sont enregistrées au démarrage sur `GUILD_ID` (elles apparaissen
 | `VOICES_DIR` | `backend/voices` | Dossier des modèles `.onnx` |
 | `FFMPEG_BIN` | ffmpeg-static, sinon le `PATH` | Binaire ffmpeg |
 | `SETTINGS_FILE` | `data/settings.json` | Réglages persistants, chemin relatif à `backend/` |
+| `LEXICON_FILE` | `data/lexicon.json` | Prononciations ajoutées, chemin relatif à `backend/` |
 
 ## API
 
@@ -92,6 +106,10 @@ Toutes les routes, sauf `/health`, `/config` et le dashboard, demandent `Authori
 | `DELETE` | `/queue/:guildId/:itemId` | Retire un message en attente |
 | `POST` | `/skip` | `{ guildId }` passe au message suivant |
 | `POST` | `/stop` | `{ guildId }` arrête et vide la file |
+| `GET` | `/pronunciation` | `{ entries, defaults, recent }` : lexique ajouté, défauts, corrections automatiques récentes |
+| `PUT` | `/pronunciation/entries` | `{ word, say, caseSensitive? }` ajoute ou remplace |
+| `DELETE` | `/pronunciation/entries` | `{ word, caseSensitive? }` |
+| `POST` | `/pronunciation/preview` | `{ text, raw? }` renvoie `{ text, changes, unresolved, phonemes }` (`raw` : phonèmes du texte tel quel) |
 
 Socket.IO, avec `auth: { token }` : `guild:subscribe { guildId }`, puis l'API pousse `guild:update` à chaque changement (connexion, file, membres des salons).
 

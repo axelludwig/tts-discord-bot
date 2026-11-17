@@ -64,6 +64,8 @@ export const config = {
   FFMPEG_BIN: resolveFfmpeg(),
   DASHBOARD_DIR: resolve(projectRoot, 'frontend', 'dist'),
   SETTINGS_FILE: resolve(backendDir, process.env['SETTINGS_FILE']?.trim() || 'data/settings.json'),
+  /** Custom pronunciations (/prononciation, dashboard), shared by every guild. */
+  LEXICON_FILE: resolve(backendDir, process.env['LEXICON_FILE']?.trim() || 'data/lexicon.json'),
 
   /** Voice used when neither the request nor the user's /voix preference picks one. */
   DEFAULT_VOICE: process.env['DEFAULT_VOICE']?.trim() || 'fr_FR-siwis-medium',

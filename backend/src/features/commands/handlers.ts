@@ -5,8 +5,18 @@ import {
   Guild,
   Message,
   MessageFlags,
+  PermissionFlagsBits,
 } from 'discord.js';
 import { config } from '../../config.js';
+import {
+  MAX_ENTRIES,
+  hasEntry,
+  listCustomEntries,
+  parseEntry,
+  removeEntry,
+  upsertEntry,
+} from '../pronunciation/lexicon.js';
+import { phonemize, preparePronunciation } from '../pronunciation/pronunciation.js';
 import {
   getUserPrefs,
   getGuildSettings,
@@ -170,6 +180,65 @@ const handlers: Record<string, Handler> = {
     setTtsChannel(i.guildId, channel.id);
     return `Je lirai les messages de <#${channel.id}> quand je suis en vocal (ceux qui commencent par \`//\` sont ignorés).`;
   },
+
+  async prononciation(i) {
+    const sub = i.options.getSubcommand();
+
+    if (sub === 'tester') {
+      const text = i.options.getString('texte', true).trim();
+      if (text.length > config.MAX_TEXT_LENGTH) {
+        throw new UserError(`Texte trop long (${config.MAX_TEXT_LENGTH} caractères max).`);
+      }
+      const result = await preparePronunciation(text);
+      const [phonemes] = (await phonemize([result.text])) ?? [null];
+      const lines = [`Lu : **${result.text}**`];
+      if (phonemes) lines.push(`Phonèmes : \`/${phonemes}/\``);
+      for (const c of result.changes) lines.push(`• ${c.from} → ${c.to} *(${c.source})*`);
+      if (result.unresolved.length) {
+        lines.push(`⚠ Encore lu à l'anglaise : ${result.unresolved.join(', ')}. Corrige avec \`/prononciation ajouter\`.`);
+      }
+      // Also read it aloud when the user is with the bot (the queue rewrites it again, from the cache).
+      const botChannel = getConnectedChannelId(i.guildId);
+      if (botChannel && userVoiceChannelId(i.guild, i.user.id) === botChannel) {
+        queueSpeech(i.guild, i.user.id, i.member.displayName, text);
+        lines.push('🔊 Je le lis.');
+      }
+      return lines.join('\n');
+    }
+
+    if (sub === 'liste') {
+      const entries = listCustomEntries();
+      if (entries.length === 0) return 'Aucune prononciation ajoutée (celles par défaut sont visibles dans le dashboard).';
+      const lines = entries.map(e => `• ${e.word}${e.caseSensitive ? ' (casse)' : ''} → ${e.say}`);
+      let out = `**${entries.length} prononciation(s) :**\n`;
+      for (const line of lines) {
+        if (out.length + line.length > 1900) { out += '… (suite dans le dashboard)'; break; }
+        out += `${line}\n`;
+      }
+      return out;
+    }
+
+    // ajouter / retirer change what everyone hears.
+    if (!i.memberPermissions.has(PermissionFlagsBits.ManageGuild)) {
+      throw new UserError('Il faut la permission *Gérer le serveur* pour modifier les prononciations.');
+    }
+    const caseSensitive = i.options.getBoolean('casse') ?? false;
+
+    if (sub === 'retirer') {
+      const word = i.options.getString('mot', true);
+      if (!removeEntry(word, caseSensitive)) throw new UserError(`Aucune prononciation ajoutée pour « ${word} ».`);
+      return `« ${word} » retiré (la prononciation par défaut, s'il y en a une, s'applique de nouveau).`;
+    }
+
+    const entry = parseEntry({ word: i.options.getString('mot', true), say: i.options.getString('dire', true), caseSensitive });
+    if (typeof entry === 'string') throw new UserError(entry);
+    if (!hasEntry(entry) && listCustomEntries().length >= MAX_ENTRIES) {
+      throw new UserError(`Trop de prononciations (${MAX_ENTRIES} max).`);
+    }
+    const saved = upsertEntry(entry);
+    const [phonemes] = (await phonemize([saved.say])) ?? [null];
+    return `C'est noté : **${saved.word}** sera lu « ${saved.say} »${phonemes ? ` \`/${phonemes}/\`` : ''}.`;
+  },
 };
 
 async function handleCommand(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -190,6 +259,13 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
 
 async function handleAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
   const focused = interaction.options.getFocused(true);
+  if (interaction.commandName === 'prononciation' && focused.name === 'mot') {
+    const query = String(focused.value).toLowerCase();
+    return interaction.respond(listCustomEntries()
+      .filter(e => e.word.toLowerCase().includes(query))
+      .slice(0, 25)
+      .map(e => ({ name: `${e.word} → ${e.say}`.slice(0, 100), value: e.word })));
+  }
   if (focused.name !== 'voix') return interaction.respond([]);
   const query = String(focused.value).toLowerCase();
   const choices = listVoices()

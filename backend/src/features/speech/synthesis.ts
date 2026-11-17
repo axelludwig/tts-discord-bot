@@ -1,7 +1,8 @@
 import { spawn } from 'node:child_process';
-import { delimiter, dirname } from 'node:path';
 import { Readable } from 'node:stream';
 import { config } from '../../config.js';
+import { preparePronunciation } from '../pronunciation/pronunciation.js';
+import { piperEnv } from './piperRuntime.js';
 import type { Voice } from './voices.js';
 
 export interface Synthesis {
@@ -19,14 +20,6 @@ function atempoChain(value: number): string[] {
   while (remaining < 0.5) { filters.push('atempo=0.5'); remaining /= 0.5; }
   filters.push(`atempo=${remaining.toFixed(5)}`);
   return filters;
-}
-
-function piperEnv(): NodeJS.ProcessEnv {
-  if (process.platform !== 'linux') return process.env;
-  // The Linux release ships its .so files next to the binary.
-  const libDir = dirname(config.PIPER_BIN);
-  const current = process.env['LD_LIBRARY_PATH'];
-  return { ...process.env, LD_LIBRARY_PATH: current ? `${libDir}${delimiter}${current}` : libDir };
 }
 
 export function synthesize(text: string, voice: Voice, pitch: number, tempo: number): Synthesis {
@@ -60,7 +53,14 @@ export function synthesize(text: string, voice: Voice, pitch: number, tempo: num
   ffmpeg.stdin.on('error', () => {});
 
   piper.stdout.pipe(ffmpeg.stdin);
-  piper.stdin.end(text);
+  // English words and brands are rewritten for the French voices (~15 ms); piper waits on stdin meanwhile.
+  preparePronunciation(text)
+    .then(r => r.text)
+    .catch(err => {
+      console.error('[pronunciation] failed, reading the text as is:', err);
+      return text;
+    })
+    .then(spoken => piper.stdin.end(spoken));
 
   return {
     stream: ffmpeg.stdout,

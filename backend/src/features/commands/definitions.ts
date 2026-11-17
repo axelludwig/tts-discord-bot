@@ -39,4 +39,24 @@ export const commandDefinitions = [
       .setName('salon')
       .setDescription('Salon texte à lire')
       .addChannelTypes(ChannelType.GuildText, ChannelType.GuildVoice)),
+
+  command('prononciation', 'Règle la façon dont le bot lit un mot (anglais, marques, sigles…)')
+    .addSubcommand(s => s
+      .setName('tester')
+      .setDescription('Montre comment un texte sera lu (et le lit si tu es avec le bot)')
+      .addStringOption(o => o.setName('texte').setDescription('Texte à tester').setRequired(true)))
+    .addSubcommand(s => s
+      .setName('ajouter')
+      .setDescription('Fait lire un mot autrement (gestion du serveur requise)')
+      .addStringOption(o => o.setName('mot').setDescription('Le mot tel qu\'on l\'écrit, ex. Teams').setRequired(true).setMaxLength(60))
+      .addStringOption(o => o.setName('dire').setDescription('Comment le lire, écrit à la française, ex. timmze').setRequired(true).setMaxLength(120))
+      .addBooleanOption(o => o.setName('casse').setDescription('Respecter les majuscules (ex. AI sans toucher à « ai »)')))
+    .addSubcommand(s => s
+      .setName('retirer')
+      .setDescription('Supprime une prononciation ajoutée (gestion du serveur requise)')
+      .addStringOption(o => o.setName('mot').setDescription('Le mot').setRequired(true).setAutocomplete(true))
+      .addBooleanOption(o => o.setName('casse').setDescription('L\'entrée respectait les majuscules')))
+    .addSubcommand(s => s
+      .setName('liste')
+      .setDescription('Liste les prononciations ajoutées')),
 ];
