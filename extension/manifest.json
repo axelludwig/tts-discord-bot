@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "TTS Teams",
+  "version": "0.1.0",
+  "description": "Fait parler le tts-bot dans le micro de Teams web, mixé avec ton vrai micro.",
+  "minimum_chrome_version": "111",
+  "permissions": ["storage"],
+  "host_permissions": ["https://tts.linkenparis.com/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "TTS Teams : afficher / masquer le panneau" },
+  "options_page": "options.html",
+  "commands": {
+    "focus-panel": {
+      "suggested_key": { "default": "Alt+Shift+T" },
+      "description": "Afficher le panneau TTS et placer le curseur dans le champ texte"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://teams.microsoft.com/*", "https://teams.cloud.microsoft/*", "https://teams.live.com/*"],
+      "js": ["inject.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://teams.microsoft.com/*", "https://teams.cloud.microsoft/*", "https://teams.live.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

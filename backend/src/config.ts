@@ -55,6 +55,8 @@ function resolveFfmpeg(): string {
 export const config = {
   DISCORD_TOKEN: requireEnv('DISCORD_TOKEN'),
   API_TOKEN: requireEnv('API_TOKEN'),
+  /** Token of the Teams browser extension (/ext/* routes only). Unset = routes disabled. */
+  EXTENSION_TOKEN: process.env['EXTENSION_TOKEN']?.trim() ?? '',
   API_PORT: intEnv('API_PORT', 3000),
   GUILD_ID: process.env['GUILD_ID'] ?? '',
   CORS_ORIGIN: process.env['CORS_ORIGIN'] ?? 'http://localhost:5173',

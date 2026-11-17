@@ -80,6 +80,7 @@ Le phonémiseur est `piper_phonemize`, livré avec Piper (environ 15 ms par mess
 | `DISCORD_TOKEN` | *requis* | Token du bot |
 | `API_TOKEN` | *requis* | Secret partagé entre le dashboard et l'API |
 | `GUILD_ID` | | Serveur du dashboard et des slash commands |
+| `EXTENSION_TOKEN` | | Token de l'extension Teams (routes `/ext/*`). Vide = routes désactivées |
 | `API_PORT` | `3000` | Port de l'API et du dashboard en prod (le proxy Vite le lit aussi) |
 | `CORS_ORIGIN` | `http://localhost:5173` | Origine autorisée en dev uniquement |
 | `DEFAULT_VOICE` | `fr_FR-siwis-medium` | Voix utilisée quand personne n'en a choisi |
@@ -110,6 +111,8 @@ Toutes les routes, sauf `/health`, `/config` et le dashboard, demandent `Authori
 | `PUT` | `/pronunciation/entries` | `{ word, say, caseSensitive? }` ajoute ou remplace |
 | `DELETE` | `/pronunciation/entries` | `{ word, caseSensitive? }` |
 | `POST` | `/pronunciation/preview` | `{ text, raw? }` renvoie `{ text, changes, unresolved, phonemes }` (`raw` : phonèmes du texte tel quel) |
+
+Extension Teams, avec `Authorization: Bearer <EXTENSION_TOKEN>` : `GET /ext/voices`, `GET /ext/presets` (presets de tous les serveurs), `POST /ext/render` `{ text, voiceId, pitch?, tempo? }` qui renvoie un WAV mono 48 kHz. Voir [`extension/README.md`](extension/README.md).
 
 Socket.IO, avec `auth: { token }` : `guild:subscribe { guildId }`, puis l'API pousse `guild:update` à chaque changement (connexion, file, membres des salons).
 

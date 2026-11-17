@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>TTS Teams : options</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 14px system-ui, sans-serif; max-width: 520px; margin: 32px auto; padding: 0 16px; }
+    label { display: block; margin: 14px 0 4px; font-weight: 600; }
+    input { width: 100%; box-sizing: border-box; padding: 7px 9px; font: inherit; }
+    .row { display: flex; gap: 8px; margin-top: 18px; }
+    button { padding: 7px 14px; font: inherit; cursor: pointer; }
+    #status { margin-top: 14px; min-height: 1.4em; }
+    .ok { color: #1a7f37; } .err { color: #cf222e; }
+    p.help { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>TTS Teams</h1>
+  <p class="help">Le token est la valeur <code>EXTENSION_TOKEN</code> de <code>backend/.env</code> du tts-bot
+    (différent de l’<code>API_TOKEN</code> du dashboard).</p>
+  <label for="server">Serveur</label>
+  <input id="server" type="url" placeholder="https://tts.linkenparis.com">
+  <label for="token">Token</label>
+  <input id="token" type="password" autocomplete="off">
+  <div class="row">
+    <button id="save">Enregistrer et tester</button>
+  </div>
+  <div id="status"></div>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { client } from './bot.js';
 import { config } from './config.js';
 import { authMiddleware } from './features/api/auth.js';
+import { buildExtensionRoutes } from './features/api/routes/extensionRoutes.js';
 import { buildGuildRoutes } from './features/api/routes/guildRoutes.js';
 import { buildPresetRoutes } from './features/api/routes/presetRoutes.js';
 import { buildPronunciationRoutes } from './features/api/routes/pronunciationRoutes.js';
@@ -21,6 +22,8 @@ const app = express();
 app.use(express.json());
 app.use(cors({ origin: config.CORS_ORIGIN }));
 app.use(buildPublicRoutes());
+// Own token (EXTENSION_TOKEN), so it is mounted before the dashboard's auth.
+app.use('/ext', buildExtensionRoutes());
 app.use(authMiddleware);
 app.use(buildGuildRoutes());
 app.use(buildVoiceRoutes());

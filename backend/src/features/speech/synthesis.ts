@@ -22,7 +22,8 @@ function atempoChain(value: number): string[] {
   return filters;
 }
 
-export function synthesize(text: string, voice: Voice, pitch: number, tempo: number): Synthesis {
+/** `channels`: 2 for Discord (default), 1 for the browser extension's WAV render. */
+export function synthesize(text: string, voice: Voice, pitch: number, tempo: number, channels: 1 | 2 = 2): Synthesis {
   const piper = spawn(config.PIPER_BIN, ['--model', voice.modelPath, '--output_raw'], { env: piperEnv() });
 
   // Pitch shift via resampling, then compensate the speed change with atempo.
@@ -37,7 +38,7 @@ export function synthesize(text: string, voice: Voice, pitch: number, tempo: num
     '-hide_banner', '-loglevel', 'error',
     '-f', 's16le', '-ar', String(voice.sampleRate), '-ac', '1', '-i', 'pipe:0',
     '-af', filter,
-    '-f', 's16le', '-ar', '48000', '-ac', '2', 'pipe:1',
+    '-f', 's16le', '-ar', '48000', '-ac', String(channels), 'pipe:1',
   ]);
 
   piper.on('error', err => console.error(`[piper] spawn error (${config.PIPER_BIN}):`, err.message));
